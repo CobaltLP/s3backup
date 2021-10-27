@@ -1,5 +1,5 @@
 import argparse
-from backups import BackupHandler
+from s3backup.backups import BackupHandler
 import logging
 
 
