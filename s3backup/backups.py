@@ -320,7 +320,6 @@ class BucketObject(object):
 
         Note the _initialized... This makes this object immutable.
         """
-        self.owner = contents["Owner"]["DisplayName"]
         self.modified = contents["LastModified"]
         self.filename = contents["Key"]
         self.etag = contents["ETag"]
@@ -332,7 +331,6 @@ class BucketObject(object):
         adict = {
             'modified': self.modified,
             'filename': self.filename,
-            'owner': self.owner,
             'size': self.size,
             'etag': self.etag
         }
