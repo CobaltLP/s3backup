@@ -17,24 +17,42 @@ logger = logging.getLogger(__name__)
 
 
 def maybe_format(msg, obj, kwargs, variable):
-    if variable:
-        variable = kwargs.get(variable[0], getattr(obj, variable[1]))
+    # type: (str, Any, dict[str, Any], Optional[Tuple[str, str]]) -> str
+    """Attempts to format a message with variable information.
+
+    Intended to wrap a bound method, this takes the binding object and the kwargs
+    of its wrapped method, and (optionally) a two-tuple of variable names. The first
+    element of the tuple is the name of the wrapped method's kwarg to use in formatting;
+    the second element is the name of the object attribute to use if the kwarg isn't set."""
+    if variable is not None:
+        fn_param_name, self_param_name = variable
+        variable = kwargs.get(fn_param_name, getattr(obj, self_param_name))
         return msg.format(variable)
     return msg
 
 
 def processlog(startmsg, successmsg, failmsg, variable=None):
+    # type: (str, str, str, Optional[Tuple[str, str]]) -> callable
+    """Wrapper around a class method to log its lifecycle.
+
+    Takes a message to print on start, success and failure, and a two-tuple of variable
+      names: one which is in the wrapped function's kwargs, and another that may be an
+      attribute or property of `self` on the object being wrapped (with the first being
+      used if available, otherwise the second). These variables can be inserted into any
+      of the messages with a pair of curly braces (e.g. "Reason: {}").
+
+    """
     def wrapper(f):
-        def inner(obj, *args, **kwargs):
-            msg = maybe_format(startmsg, obj, kwargs, variable)
+        def inner(self, *args, **kwargs):
+            msg = maybe_format(startmsg, self, kwargs, variable)
             logger.info(msg)
             try:
-                rv = f(obj, *args, **kwargs)
+                rv = f(self, *args, **kwargs)
             except Exception as e:
-                msg = maybe_format(failmsg, obj, kwargs, variable)
-                logger.error("{}: {}".format(msg, e))
+                msg = maybe_format(failmsg, self, kwargs, variable)
+                logger.error("{}: {}: {}".format(msg, e.__class__.__name__, e))
                 raise
-            msg = maybe_format(successmsg, obj, kwargs, variable)
+            msg = maybe_format(successmsg, self, kwargs, variable)
             logger.info(msg)
             return rv
         return inner
@@ -49,6 +67,7 @@ def load_config(path):
     except Exception as e:
         print("Unable to load config at:\n  {}".format(path))
         print("Reason: {}".format(e))
+        raise
 
     extension = path.split('.')[-1].lower()
 
@@ -168,7 +187,7 @@ class BackupHandler(object):
         startmsg="Attempting to backup directory {}.",
         successmsg="Backup of directory {} was successful!",
         failmsg="Backup failed for directory {}.",
-        variable=('directory', 'backupdir')
+        variable=('backup_target', 'backupdir')
     )
     def backup(self, backup_target=None, rename_to=None):
         """Tar the folder (includes only) and upload it to s3."""
@@ -359,12 +378,18 @@ class BackupStore(object):
             try:
                 filename = self.list_objects().filenames[-1]
             except IndexError:
-                raise Exception("It seem's you have an empty bucket.")
+                raise EnvironmentError("Error: Bucket appears to be empty")
+        elif as_filename:
+            filename = as_filename
+        else:
+            raise ValueError('Target is not latest and filepath not given; cannot continue')
+
         try:
-            local = os.path.join(localpath, as_filename or filename)
+            local = os.path.join(localpath, filename)
             self.client.download_file(self._bucket, filename, local)
         except bexc.ClientError as e:
             print("Download Exception: {}".format(e))
+            raise
 
         return local
 
