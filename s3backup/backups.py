@@ -33,15 +33,16 @@ def maybe_format(msg, obj, kwargs, variable):
 
 def processlog(startmsg, successmsg, failmsg, variable=None):
     # type: (str, str, str, Optional[Tuple[str, str]]) -> callable
+    # noinspection PyInterpreter
     """Wrapper around a class method to log its lifecycle.
 
-    Takes a message to print on start, success and failure, and a two-tuple of variable
-      names: one which is in the wrapped function's kwargs, and another that may be an
-      attribute or property of `self` on the object being wrapped (with the first being
-      used if available, otherwise the second). These variables can be inserted into any
-      of the messages with a pair of curly braces (e.g. "Reason: {}").
+        Takes a message to print on start, success and failure, and a two-tuple of variable
+          names: one which is in the wrapped function's kwargs, and another that may be an
+          attribute or property of `self` on the object being wrapped (with the first being
+          used if available, otherwise the second). These variables can be inserted into any
+          of the messages with a pair of curly braces (e.g. "Reason: {}").
 
-    """
+        """
     def wrapper(f):
         def inner(self, *args, **kwargs):
             msg = maybe_format(startmsg, self, kwargs, variable)
@@ -432,8 +433,11 @@ class BackupStore(object):
             Bucket=self._bucket,
         )
 
-    def _prune_bucket(self, retain):
+    def _prune_bucket(self, retain, patterns=['deb', 'tar.gz']):
         objects = self.list_objects().ordered(order_by='modified')
-        if len(objects) > retain:
-            to_prune = objects[retain:]
-            self.delete(to_prune)
+        if objects:
+            for pattern in patterns:
+                objects_by_pattern = [object for object in objects if pattern in object['Key']]
+                if len(objects_by_pattern) > retain:
+                    to_prune = objects_by_pattern[retain:]
+                    self.delete(to_prune)
