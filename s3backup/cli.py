@@ -14,6 +14,7 @@ backup_parser.add_argument('--rename', '-rn', dest='rename_to')
 backup_parser.add_argument('--target', '-t', dest='backup_target')
 restore_parser = commands.add_parser('restore')
 list_parser = commands.add_parser('list')
+prune_parser = commands.add_parser('prune')
 
 logger = logging.getLogger('s3_backup:cli')
 logging.basicConfig(
@@ -38,6 +39,10 @@ def main():
             print("Bucket List (lol):")
             for name in collection.filenames:
                 print("  - {}".format(name))
+        elif args.command == "prune":
+            handler.prune(
+                retain=3
+                )
         else:
             raise Exception("Invalid command.")
     except Exception as e:

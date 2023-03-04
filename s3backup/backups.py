@@ -199,6 +199,11 @@ class BackupHandler(object):
             final_path = stage.path()
             self.store.upload(final_path, stage.name())
 
+    def prune(self, retain=5):
+        """Tar the folder (includes only) and upload it to s3."""
+        with StagingContext() as stage:
+            self.store._prune_bucket(retain=retain)
+
     @processlog(
         startmsg="Attempting to restore to {}.",
         failmsg="Restore failed for {}.",
@@ -437,7 +442,7 @@ class BackupStore(object):
         objects = self.list_objects().ordered(order_by='modified')
         if objects:
             for pattern in patterns:
-                objects_by_pattern = [object for object in objects if pattern in object['Key']]
+                objects_by_pattern = [obj for obj in objects if pattern in obj.filename]
                 if len(objects_by_pattern) > retain:
                     to_prune = objects_by_pattern[retain:]
                     self.delete(to_prune)
