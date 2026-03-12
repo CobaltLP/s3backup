@@ -9,7 +9,6 @@ import tempfile
 import logging
 import random
 import shutil
-from distutils import dir_util as du
 from botocore import exceptions as bexc
 
 
@@ -120,8 +119,7 @@ class StagingContext(object):
                 end_path = obj.split(target)[-1].lstrip(os.sep)
                 path = os.path.join(self.targetpath, end_path)
                 if os.path.isdir(obj):
-                    du.copy_tree(obj, path, preserve_mode=True,
-                                 preserve_symlinks=True)
+                    shutil.copy_tree(obj, path, preserve_symlinks=True, dirs_exist_ok=True)
                 else:
                     try:
                         os.makedirs(os.path.dirname(path))
