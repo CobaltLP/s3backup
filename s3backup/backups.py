@@ -9,10 +9,14 @@ import tempfile
 import logging
 import random
 import shutil
+import sys
 from botocore import exceptions as bexc
 
 
 logger = logging.getLogger(__name__)
+
+def is_imported(module_name):
+    return module_name in sys.modules
 
 
 def maybe_format(msg, obj, kwargs, variable):
@@ -119,7 +123,12 @@ class StagingContext(object):
                 end_path = obj.split(target)[-1].lstrip(os.sep)
                 path = os.path.join(self.targetpath, end_path)
                 if os.path.isdir(obj):
-                    shutil.copy_tree(obj, path, preserve_symlinks=True, dirs_exist_ok=True)
+                    try:
+                        shutil.copy_tree(obj, path, preserve_symlinks=True, dirs_exist_ok=True)
+                    except AttributeError:
+                        if not is_imported('distutils'):
+                            import distutils
+                        distutils.dir_util.copy_tree(obj, path, preserve_mode=True, preserve_symlinks=True)
                 else:
                     try:
                         os.makedirs(os.path.dirname(path))
